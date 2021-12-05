@@ -1,0 +1,133 @@
+<!--
+I adapted Carlos Delgado's Fiddle (https://jsfiddle.net/ourcodeworld/8swevoxo/9/)
+and added more features and a title.
+-->
+
+<html>
+  <h1>Image pixel color analyzer</h1>
+  <p>Upload a photo. Move to mouse to hover over specific pixels. Click to freeze.</p>
+  <input type='file' id='img'/><br>
+  <p>Image dimensions: <span id='img-dims'></span></p>
+  <form>
+    <p>Canvas sizing options:</p>
+      <input type="radio" id="image-to-canvas" name="canvas-sizing" value="image-to-canvas" checked>
+      <label for="image-to-canvas">Fit image to canvas</label><br>
+      <input type="radio" id="canvas-to-image" name="canvas-sizing" value="canvas-to-image">
+      <label for="canvas-to-image">Fit canvas to image</label><br><br>
+  </form>
+  <p>Frozen: <span id="frozen">false</span></p>
+  <canvas id="canvas"></canvas>
+  <div id="status"></div><br>
+  <div id="color" style="width:30px;height:30px;"></div>
+  <p>Color (hex): <span id="color-hex"></span></p>
+  <p>Color (RGB): <span id="color-rgb"></span></p>
+  <script>
+    var canvas = document.getElementById("canvas");
+    var ctx = canvas.getContext('2d');
+
+    let size = 300;
+    canvas.width = size;
+    canvas.height = size;
+    
+    let freeze = false;
+    let imageToCanvas = true;
+    let sizingRadios = document.getElementsByName("canvas-sizing");
+
+    for (var i = 0; i < sizingRadios.length; i++) {
+	    sizingRadios[i].onclick = function() {
+		if ((this.value === 'image-to-canvas') === imageToCanvas) {
+		    return;
+		} else {
+		    if (this.value === 'image-to-canvas') {
+			canvas.width = size;
+			canvas.height = size;
+		    } else {
+			canvas.width = img.width;
+			canvas.height = img.height;
+		    }
+		    ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, canvas.width, canvas.height);
+		}
+		imageToCanvas = !imageToCanvas;
+	    }
+    }
+    
+    let img = null;
+    document.getElementById('img').addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            img = new Image();
+            img.onload = () => {
+		document.getElementById('img-dims').innerHTML = img.width + 'px x '+ img.height + 'px';
+
+		if (sizingRadios[0].checked) {
+		    canvas.width = size;
+                    canvas.height = size;
+		} else {
+		    canvas.width = img.width;
+                    canvas.height = img.width;
+		}
+
+		ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, canvas.width, canvas.height);
+		canvas.click(); // make sure canvas is selected, which will change freeze to true
+		canvas.click(); // change freeze back to false
+            }
+            img.src = URL.createObjectURL(this.files[0]); // set src to blob url // not sure i need this
+        }
+    });
+    
+    function getElementPosition(obj) {
+	var curleft = 0, curtop = 0;
+	if (obj.offsetParent) {
+            do {
+		curleft += obj.offsetLeft;
+		curtop += obj.offsetTop;
+            } while (obj = obj.offsetParent);
+            return { x: curleft, y: curtop };
+	}
+	return undefined;
+    }
+    
+    function getEventLocation(element,event){
+	var pos = getElementPosition(element);
+	
+	return {
+    	    x: (event.pageX - pos.x),
+      	    y: (event.pageY - pos.y)
+	};
+    }
+    
+    function rgbToHex(r, g, b) {
+	if (r > 255 || g > 255 || b > 255)
+            throw "Invalid color component";
+	return ((r << 16) | (g << 8) | b).toString(16);
+    }
+    
+    canvas.addEventListener("mousemove",function(e){
+	if (freeze) {return;}
+	var eventLocation = getEventLocation(this,e);
+	var coord = "x=" + eventLocation.x + ", y=" + eventLocation.y;
+	
+	// Get the data of the pixel according to the location generate by the getEventLocation function
+	var context = this.getContext('2d');
+	var pixelData = context.getImageData(eventLocation.x, eventLocation.y, 1, 1).data; 
+	
+	// If transparency on the image
+	if((pixelData[0] == 0) && (pixelData[1] == 0) && (pixelData[2] == 0) && (pixelData[3] == 0)){
+ 	    coord += " (Transparent color detected, cannot be converted to HEX)";
+	}
+	
+	var hex = "#" + ("000000" + rgbToHex(pixelData[0], pixelData[1], pixelData[2])).slice(-6);
+
+	document.getElementById("color-rgb").innerHTML = [pixelData[0], pixelData[1], pixelData[2]];
+	document.getElementById("color-hex").innerHTML = hex;
+	
+	// Draw the color and coordinates.
+	document.getElementById("status").innerHTML = coord;
+	document.getElementById("color").style.backgroundColor = hex;
+    },false);
+
+    canvas.onclick = function(e) {
+	freeze = !freeze;
+	document.getElementById("frozen").innerHTML = freeze;
+    }
+  </script>
+</html>
